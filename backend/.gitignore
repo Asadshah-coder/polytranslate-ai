@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.db
+*.db-journal
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+alembic/versions/__pycache__/
+.DS_Store

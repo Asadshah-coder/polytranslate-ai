@@ -1,0 +1,79 @@
+# ── PolyTranslate AI — full stack ──────────────────────────────
+# Starts everything with:  docker compose up --build
+# Then open http://localhost:3000 (frontend) — API at http://localhost:8000
+#
+# Required: set JWT_SECRET and at least one AI key in your shell or .env:
+#   export JWT_SECRET="a-long-random-string"
+#   export GEMINI_API_KEY="..."
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: polytranslate
+      POSTGRES_PASSWORD: polytranslate
+      POSTGRES_DB: polytranslate
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polytranslate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://polytranslate:polytranslate@db:5432/polytranslate
+      REDIS_URL: redis://redis:6379/0
+      AI_PROVIDER: ${AI_PROVIDER:-auto}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your environment or .env file}
+      JWT_EXPIRE_MINUTES: 10080
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FREE_MONTHLY_CHARACTERS: ${FREE_MONTHLY_CHARACTERS:-50000}
+      PRO_MONTHLY_CHARACTERS: ${PRO_MONTHLY_CHARACTERS:-2000000}
+      BUSINESS_MONTHLY_CHARACTERS: ${BUSINESS_MONTHLY_CHARACTERS:-10000000}
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  redisdata:
