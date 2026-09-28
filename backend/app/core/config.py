@@ -54,7 +54,16 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        origins = []
+        for o in self.CORS_ORIGINS.split(","):
+            o = o.strip().rstrip("/")
+            if not o:
+                continue
+            # Render Blueprint wires bare hostnames (no scheme); assume https.
+            if "://" not in o:
+                o = f"https://{o}"
+            origins.append(o)
+        return origins
 
     @property
     def is_production(self) -> bool:

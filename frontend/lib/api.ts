@@ -5,7 +5,14 @@
  * user-friendly `detail` string.
  */
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+function withScheme(raw: string): string {
+  const v = raw.replace(/\/+$/, "");
+  // Render Blueprint wires hostnames without a scheme (e.g. "my-api.onrender.com");
+  // assume https in that case so one blueprint works everywhere.
+  return /:\/\//.test(v) ? v : `https://${v}`;
+}
+
+const API_BASE = withScheme(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 export const TOKEN_STORAGE_KEY = "polytranslate_token";
 

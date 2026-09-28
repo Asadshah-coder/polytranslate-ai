@@ -1,0 +1,85 @@
+# Render Blueprint — one-click deployment of PolyTranslate AI (free plan).
+#
+# What it creates:
+#   1. polytranslate-db        — PostgreSQL (free)
+#   2. polytranslate-api       — FastAPI backend  (Docker, free)
+#   3. polytranslate-frontend  — Next.js frontend (Node, free)
+#
+# Wiring is automatic: the frontend's NEXT_PUBLIC_API_URL and the backend's
+# CORS_ORIGINS are set from the services' Render hostnames via `fromService`,
+# so there is no manual URL copy-paste. Both apps tolerate scheme-less
+# hostnames (they assume https).
+#
+# Secrets / keys:
+#   - JWT_SECRET is auto-generated (generateValue).
+#   - GEMINI_API_KEY / OPENAI_API_KEY use `sync: false`, so Render prompts
+#     for them at deploy time — both are OPTIONAL. Without a key the app
+#     still runs; translation endpoints honestly return 503.
+#
+# Free-tier notes:
+#   - Services sleep after ~15 min idle; first visit wakes them in ~60s.
+#   - No Redis on the free blueprint — the backend falls back to in-memory
+#     rate limiting (documented behavior, fine for a demo).
+#   - Postgres free tier: 1 GB storage, expires after 30 days of inactivity
+#     unless upgraded (Render's policy) — fine for a portfolio demo.
+
+databases:
+  - name: polytranslate-db
+    plan: free
+    databaseName: polytranslate
+    user: polytranslate
+
+services:
+  - type: web
+    name: polytranslate-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: polytranslate-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_PROVIDER
+        value: auto
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: polytranslate-frontend
+          property: host
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: polytranslate-frontend
+          property: host
+
+  - type: web
+    name: polytranslate-frontend
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: polytranslate-api
+          property: host
+      - key: NEXT_PUBLIC_SITE_URL
+        fromService:
+          type: web
+          name: polytranslate-frontend
+          property: host
