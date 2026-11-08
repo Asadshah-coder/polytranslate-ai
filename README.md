@@ -184,3 +184,5 @@ Interactive docs at `/api/docs` when the backend runs.
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE).
+
+Portfolio: https://asadbukhari.site
